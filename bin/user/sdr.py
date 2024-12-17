@@ -2268,6 +2268,44 @@ class RubicsonTempPacket(Packet):
         pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
         return Packet.add_identifiers(pkt, sensor_id, RubicsonTempPacket.__name__)
 
+class RubicsonTemperaturePacket(Packet):
+
+    # 2024-12-17 (Accutemp Sensor)
+    #
+    #{"time" : "2024-12-17 20:00:48", "model" : "Rubicson-Temperature", "id" : 140, "channel" : 1, "battery_ok" : 1, "temperature_C" : 21.600, "mic" : "CRC"}
+    #{"time" : "2024-12-17 20:00:48", "model" : "Solight-TE44", "id" : 140, "channel" : 1, "temperature_C" : 21.600, "mic" : "CRC"} 
+    #
+    #parsed: {'dateTime': 1734467188, 'usUnits': 16, 'temperature.1:140.RubicsonTempPacket': 20.9, 'battery.1:140.RubicsonTempPacket': 1}
+    
+    IDENTIFIER = "Rubicson-Temperature"
+    PARSEINFO = {
+        'House Code': ['house_code', None, lambda x: int(x)],
+        'Channel': ['channel', None, lambda x: int(x)],
+        'Battery': ['battery', None, lambda x: 0 if x == 'OK' else 1],
+        'Temperature': ['temperature', re.compile('([\d.-]+) C'), lambda x: float(x)]}
+
+    @staticmethod
+    def parse_text(ts, payload, lines):
+        pkt = dict()
+        pkt['dateTime'] = ts
+        pkt['usUnits'] = weewx.METRIC
+        pkt.update(Packet.parse_lines(lines, RubicsonTempPacket.PARSEINFO))
+        channel = pkt.pop('channel', 0)
+        code = pkt.pop('house_code', 0)
+        sensor_id = "%s:%s" % (channel, code)
+        return Packet.add_identifiers(pkt, sensor_id, RubicsonTempPacket.__name__)
+
+    @staticmethod
+    def parse_json(obj):
+        pkt = dict()
+        pkt['dateTime'] = Packet.parse_time(obj.get('time'))
+        pkt['usUnits'] = weewx.METRIC
+        channel = obj.get('channel', 0)
+        code = obj.get('id', 0)
+        sensor_id = "%s:%s" % (channel, code)
+        pkt['temperature'] = Packet.get_float(obj, 'temperature_C')
+        pkt['battery'] = 0 if obj.get('battery') == 'OK' else 1
+        return Packet.add_identifiers(pkt, sensor_id, RubicsonTempPacket.__name__)
 
 class OS(object):
     @staticmethod
